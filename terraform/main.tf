@@ -16,6 +16,9 @@ module "vpc" {
 
   enable_nat_gateway = true
   single_nat_gateway = true
+
+  map_public_ip_on_launch = true
+
 }
 
 resource "aws_eks_cluster" "cluster" {
@@ -36,7 +39,7 @@ resource "aws_eks_node_group" "workers" {
   cluster_name    = aws_eks_cluster.cluster.name
   node_group_name = var.node_group_name
   node_role_arn   = aws_iam_role.node_group_role.arn
-  subnet_ids      = [module.subnets.public_subnet_1, module.subnets.public_subnet_2, module.subnets.public_subnet_3]
+  subnet_ids      = module.vpc.private_subnets          # where worker nodes will be deployed
 
   scaling_config {
     desired_size = 2

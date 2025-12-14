@@ -89,8 +89,8 @@ jobs:
         id: tf-output
         working-directory: ${{ env.TERRAFORM_DIR }}
         run: |
-          cluster_name=$(terraform output -raw cluster_name)
-          echo "cluster_name=$cluster_name" >> $GITHUB_OUTPUT
+          cluster_name=$(terraform output -json | jq -r '.cluster_name.value')
+          echo "cluster_name=$cluster_name" >> "$GITHUB_OUTPUT"
 
       - name: Generate kubeconfig                     # you do need a kubeconfig file to interact with the cluster after it exists.
         working-directory: ${{ env.TERRAFORM_DIR }}

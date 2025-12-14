@@ -1,0 +1,186 @@
+name: Bootstrap EKS Cluster
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TERRAFORM_DIR: ./terraform
+
+jobs:
+  bootstrap-eks:
+    runs-on: ubuntu-latest
+    outputs:
+      apply_status: ${{ steps.tf_apply.outputs.apply_status }}
+      cluster_name: ${{ steps.tf-output.outputs.cluster_name }}
+    
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Fetch Terraform vars from AWS Secrets Manager
+        id: fetch_secret
+        run: |
+          echo "Retrieving secret from Secrets Manager..."
+          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.AWS_TF_VARS_SECRET_ARN }}" --query SecretString --output text)
+          if [ -z "$SECRET_JSON" ]; then
+            echo "::error ::Failed to read secret or secret is empty"
+            exit 1
+          fi
+          echo "::add-mask::$SECRET_JSON"
+          mkdir -p ./terraform
+          echo "$SECRET_JSON" > ./terraform/terraform.tfvars.json
+          echo "Wrote terraform/terraform.tfvars.json (not printed here for security)"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform init -input=false -backend-config="bucket=${{ secrets.TFSTATE_BUCKET }}" -backend-config="region=${{ secrets.AWS_REGION }}"
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform fmt -check || true
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform validate || true
+
+      - name: Terraform plan
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform plan -out=tfplan.binary -input=false || true 
+
+      - name: Terraform Apply (auto-approve)            # this step is for when apply fails, it will destroy the partially created resources
+        id: tf_apply
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          # Try apply and capture result; always exit 0 so job doesn't fail early.
+          set +e        # disables exit-on-error so the script can inspect the return code instead of failing the step immediately.
+          terraform apply -auto-approve tfplan.binary
+          RC=$?
+          if [ "$RC" -eq 0 ]; then
+            echo "apply_status=success" >> "$GITHUB_OUTPUT"
+            echo "apply_rc=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "apply_status=failure" >> "$GITHUB_OUTPUT"
+            echo "apply_rc=${RC}" >> "$GITHUB_OUTPUT"
+          fi
+          # Keep the step itself exit 0 so job completes and outputs are visible
+          exit 0
+
+      - name: Get Terraform outputs
+        id: tf-output
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          cluster_name=$(terraform output -raw cluster_name)
+          echo "cluster_name=$cluster_name" >> $GITHUB_OUTPUT
+
+      - name: Generate kubeconfig                     # you do need a kubeconfig file to interact with the cluster after it exists.
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.kube"
+          aws eks update-kubeconfig \
+            --name "${{ needs.terraform-apply.outputs.cluster_name }}" \
+            --region "${{ secrets.AWS_REGION }}" \
+            --kubeconfig "$GITHUB_WORKSPACE/.kube/config"
+
+      - name: Install ArgoCD
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          kubectl create namespace argocd
+          helm repo add argo https://argoproj.github.io/argo-helm
+          helm repo update
+          helm upgrade --install argocd argo/argo-cd -n argocd
+
+      - name: Install Argo Rollouts
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          kubectl create namespace argo-rollouts
+          kubectl apply -n argo-rollouts -f https://raw.githubusercontent.com/argoproj/argo-rollouts/stable/manifests/install.yaml
+
+      - name: Install External Secrets operator (AWS Secrets Manager)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          kubectl create namespace external-secrets
+          helm repo add external-secrets https://external-secrets.github.io/kubernetes-external-secrets/
+          helm repo update
+          helm install external-secrets external-secrets/kubernetes-external-secrets -n external-secrets
+
+      - name: Install cert-manager(for TLS)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          kubectl create namespace cert-manager
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm install cert-manager jetstack/cert-manager -n cert-manager --set installCRDs=true
+
+
+  destroy-on-failure:
+    name: Terraform Destroy (runs only if terraform apply failed)
+    needs: bootstrap-eks
+    runs-on: ubuntu-latest
+    if: steps.tf_apply.outputs.apply_status == 'failure'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials via OIDC (for destroy)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Show runner path (debug)
+        run: |
+          echo "Working dir: $(pwd)"
+          ls -la
+          
+      - name: Fetch Terraform vars from AWS Secrets Manager
+        id: fetch_secret
+        run: |
+          echo "Retrieving secret from Secrets Manager..."
+          # get secret string (plain JSON). will fail the step if it cannot retrieve.
+          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.AWS_TF_VARS_SECRET_ARN }}" --query SecretString --output text)
+          if [ -z "$SECRET_JSON" ]; then
+            echo "::error ::Failed to read secret or secret is empty"
+            exit 1
+          fi
+          # mask secret to avoid leaking in logs (best-effort)
+          echo "::add-mask::$SECRET_JSON"
+          # write JSON into terraform folder as terraform.tfvars.json so Terraform auto-loads it
+          mkdir -p ./terraform
+          echo "$SECRET_JSON" > ./terraform/terraform.tfvars.json
+          echo "Wrote terraform/terraform.tfvars.json (not printed here for security)"
+
+      - name: Terraform init (for destroy)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform refresh state (best-effort)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform refresh -input=false || true
+
+      - name: Terraform Destroy (cleanup)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          echo "Terraform apply failed; attempting terraform destroy to clean up resources..."
+          set -e
+          terraform destroy -auto-approve

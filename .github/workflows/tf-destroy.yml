@@ -10,7 +10,8 @@ permissions:
 env:
   TERRAFORM_DIR: ./terraform
 
-destroy-on-failure:
+jobs:
+  destroy-on-failure:
     name: Terraform Destroy
     runs-on: ubuntu-latest
     steps:
@@ -56,5 +57,6 @@ destroy-on-failure:
       - name: Terraform Destroy (cleanup)
         working-directory: ${{ env.TERRAFORM_DIR }}
         run: |
+
           set -e
           terraform destroy -auto-approve

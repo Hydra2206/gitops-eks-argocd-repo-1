@@ -1,0 +1,60 @@
+name: Terraform-destroy
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TERRAFORM_DIR: ./terraform
+
+destroy-on-failure:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials via OIDC (for destroy)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Fetch Terraform vars from AWS Secrets Manager
+        id: fetch_secret
+        run: |
+          echo "Retrieving secret from Secrets Manager..."
+          # get secret string (plain JSON). will fail the step if it cannot retrieve.
+          SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.AWS_TF_VARS_SECRET_ARN }}" --query SecretString --output text)
+          if [ -z "$SECRET_JSON" ]; then
+            echo "::error ::Failed to read secret or secret is empty"
+            exit 1
+          fi
+          # mask secret to avoid leaking in logs (best-effort)
+          echo "::add-mask::$SECRET_JSON"
+          # write JSON into terraform folder as terraform.tfvars.json so Terraform auto-loads it
+          mkdir -p ./terraform
+          echo "$SECRET_JSON" > ./terraform/terraform.tfvars.json
+          echo "Wrote terraform/terraform.tfvars.json (not printed here for security)"
+
+      - name: Terraform init (for destroy)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform refresh state (best-effort)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform refresh -input=false || true
+
+      - name: Terraform Destroy (cleanup)
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          set -e
+          terraform destroy -auto-approve

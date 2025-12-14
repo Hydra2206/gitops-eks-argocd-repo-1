@@ -132,7 +132,7 @@ jobs:
     name: Terraform Destroy (runs only if terraform apply failed)
     needs: bootstrap-eks
     runs-on: ubuntu-latest
-    if: steps.tf_apply.outputs.apply_status == 'failure'
+    if: needs.bootstrap-eks.outputs.apply_status == 'failure'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -152,7 +152,7 @@ jobs:
         run: |
           echo "Working dir: $(pwd)"
           ls -la
-          
+
       - name: Fetch Terraform vars from AWS Secrets Manager
         id: fetch_secret
         run: |

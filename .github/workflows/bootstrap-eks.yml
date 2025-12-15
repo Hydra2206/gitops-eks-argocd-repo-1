@@ -84,6 +84,10 @@ jobs:
           # Keep the step itself exit 0 so job completes and outputs are visible
           exit 0
 
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f ./app/k8s/rbac-issue-aws-auth-patch.yaml
+
       - name: Generate kubeconfig                     # you do need a kubeconfig file to interact with the cluster after it exists.
         working-directory: ${{ env.TERRAFORM_DIR }}
         run: |
@@ -113,13 +117,6 @@ jobs:
           helm repo add external-secrets https://external-secrets.github.io/kubernetes-external-secrets/
           helm repo update
           helm install external-secrets external-secrets/kubernetes-external-secrets -n external-secrets
-
-      - name: Install cert-manager(for TLS)
-        run: |
-          kubectl create namespace cert-manager
-          helm repo add jetstack https://charts.jetstack.io
-          helm repo update
-          helm install cert-manager jetstack/cert-manager -n cert-manager --set installCRDs=true
 
 
   destroy-on-failure:

@@ -110,15 +110,17 @@ jobs:
 
       - name: Install Argo Rollouts
         run: |
-          kubectl create namespace argo-rollouts
+          kubectl create namespace argo-rollouts || true
           kubectl apply -n argo-rollouts -f https://raw.githubusercontent.com/argoproj/argo-rollouts/stable/manifests/install.yaml
 
       - name: Install External Secrets operator (AWS Secrets Manager)
         run: |
-          kubectl create namespace external-secrets
-          helm repo add external-secrets https://external-secrets.github.io/kubernetes-external-secrets/
+          kubectl create namespace external-secrets || true
+          helm repo add external-secrets https://charts.external-secrets.io
           helm repo update
-          helm install external-secrets external-secrets/kubernetes-external-secrets -n external-secrets
+          helm install external-secrets \
+          external-secrets/external-secrets \
+          -n external-secrets
 
 
   destroy-on-failure:

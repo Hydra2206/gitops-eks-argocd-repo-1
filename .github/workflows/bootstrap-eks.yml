@@ -97,11 +97,6 @@ jobs:
 
           echo "KUBECONFIG=$GITHUB_WORKSPACE/.kube/config" >> $GITHUB_ENV
     
-      - name: Deploy to EKS
-        run: |
-          kubectl apply -f ./app/k8s/rbac-issue-aws-auth-patch.yaml
-          kubectl apply -f ./app/k8s/serviceaccount.yml
-
       - name: Install ArgoCD
         run: |
           kubectl create namespace argocd || true
@@ -124,7 +119,11 @@ jobs:
           -n external-secrets \
           --set serviceAccount.create=false \
           --set serviceAccount.name=external-secrets
-
+      
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f ./app/k8s/rbac-issue-aws-auth-patch.yaml
+          kubectl apply -f ./app/k8s/serviceaccount.yml
 
   destroy-on-failure:
     name: Terraform Destroy (runs only if terraform apply failed)

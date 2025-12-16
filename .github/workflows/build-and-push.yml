@@ -22,8 +22,8 @@ jobs:
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/github-actions-deploy-role
-          aws-region: ap-south-1
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_TO_ASSUME }}           #github-actions-deploy-role
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to ECR
         id: login-ecr
@@ -31,7 +31,7 @@ jobs:
 
       - name: Build, tag, and push
         env:
-          ECR_REGISTRY: 123456789012.dkr.ecr.ap-south-1.amazonaws.com
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_NAME: gitops-app
         run: |
           IMAGE_TAG=${GITHUB_SHA::8}
@@ -42,6 +42,6 @@ jobs:
       - name: Create Image Tag commit to GitOps repo
         uses: peter-evans/repository-dispatch@v2
         with:
-          repository: your-org/apps
+          repository: Hydra2206/gitops-eks-argocd-repo-2/apps
           event-type: new-image
           client-payload: '{"image":"'"${{ steps.build.outputs.image }}"'","ref":"main"}'

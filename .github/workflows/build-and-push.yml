@@ -40,11 +40,3 @@ jobs:
           docker build -t $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG ./services/frontend
           docker push $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Create Image Tag commit to GitOps repo
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.GITOPS_REPO_PAT }}
-          repository: Hydra2206/gitops-eks-argocd-repo-2/apps
-          event-type: new-image
-          client-payload: '{"image":"'"${{ steps.build-image.outputs.image }}"'","ref":"main"}'

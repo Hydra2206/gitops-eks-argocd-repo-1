@@ -8,4 +8,6 @@
 15/12/2025 - Learned about ESO, tried to applied in this project but acche se samajh nahi aara hai uske liye kya karna hai toh abhi ke liye ESO part ko skip karra hu bad me implement karunga jab aage uski need hogi
               IRSA = allowing a Kubernetes Pod to assume an AWS IAM Role securely
 
+16/12/2025 - build push workflow complete kiya (successful hai)
+
 Secrets & IAM best practices se continue karna hai

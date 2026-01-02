@@ -111,7 +111,6 @@ jobs:
       - name: Deploy to EKS
         run: |
           kubectl apply -f ./app/k8s/rbac-issue-aws-auth-patch.yaml
-          kubectl apply -f ./app/k8s/serviceaccount.yml
 
   destroy-on-failure:
     name: Terraform Destroy (runs only if terraform apply failed)

@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/Hydra2206/gitops-eks-argocd-repo-2'
+    repoURL: 'https://github.com/Hydra2206/gitops-eks-argocd'
     targetRevision: HEAD
     path: apps/services/frontend
   destination:

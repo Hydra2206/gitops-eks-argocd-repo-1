@@ -1,1 +1,0 @@
-# GitOps-EKS-ArgoCD-repo-2

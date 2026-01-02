@@ -42,7 +42,7 @@ resource "aws_eks_node_group" "workers" {
   subnet_ids      = module.vpc.private_subnets          # where worker nodes will be deployed
 
   scaling_config {
-    desired_size = 2
+    desired_size = 8
     max_size     = 10
     min_size     = 1
   }

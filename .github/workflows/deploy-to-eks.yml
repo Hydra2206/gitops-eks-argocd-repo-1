@@ -1,4 +1,4 @@
-name: Deploy application to EKS using ArgoCD
+name: Deploy app to EKS using ArgoCD
 
 on:
   workflow_dispatch: {}

@@ -30,5 +30,5 @@ variable "github_owner" {
 
 variable "github_repo" {
   type    = string
-  default = "gitops-eks-argocd-repo-1"
+  default = "gitops-eks-argocd"
 }

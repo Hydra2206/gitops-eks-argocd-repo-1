@@ -1,0 +1,39 @@
+name: Deploy application to EKS using ArgoCD
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}           #github-actions-deploy-role
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Generate kubeconfig                     # you do need a kubeconfig file to interact with the cluster after it exists.
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.kube"
+          aws eks update-kubeconfig \
+            --name "${{ secrets.CLUSTER_NAME }}" \
+            --region "${{ secrets.AWS_REGION }}" \
+            --kubeconfig "$GITHUB_WORKSPACE/.kube/config"
+
+          echo "KUBECONFIG=$GITHUB_WORKSPACE/.kube/config" >> $GITHUB_ENV
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f ./apps/argocd-apps/application.yml

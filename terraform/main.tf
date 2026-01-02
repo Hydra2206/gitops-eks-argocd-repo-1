@@ -54,7 +54,7 @@ resource "aws_eks_node_group" "workers" {
   labels = { role = "worker" }
 }
 
-
+/*
 resource "aws_ecr_repository" "ecr_repo" {
   name                 = var.ecr_name
   image_tag_mutability = "MUTABLE"
@@ -62,6 +62,7 @@ resource "aws_ecr_repository" "ecr_repo" {
     encryption_type = "AES256"
   }
 }
+*/
 
 # EKS Cluster Role (trust: eks.amazonaws.com)
 resource "aws_iam_role" "eks_cluster_role" {

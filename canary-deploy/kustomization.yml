@@ -1,0 +1,4 @@
+resources:
+  - rollout.yml
+  - service-stable.yml
+  - service-canary.yml

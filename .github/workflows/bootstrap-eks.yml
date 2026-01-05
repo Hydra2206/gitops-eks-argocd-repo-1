@@ -106,8 +106,11 @@ jobs:
         run: |
           kubectl create namespace argo-rollouts || true
           kubectl apply -n argo-rollouts -f https://raw.githubusercontent.com/argoproj/argo-rollouts/stable/manifests/install.yaml
-  
-      
+
+      - name: create namespace game-2048
+        run: |
+          kubectl create namespace game-2048 || true
+
       - name: Deploy to EKS
         run: |
           kubectl apply -f ./k8s/rbac-issue-aws-auth-patch.yaml

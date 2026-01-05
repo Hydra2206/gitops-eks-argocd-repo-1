@@ -21,16 +21,16 @@ spec:
         - containerPort: 80
         
 strategy:
-    canary:
-      stableService: demo-app-stable
-      canaryService: demo-app-canary
+  canary:
+    stableService: demo-app-stable
+    canaryService: demo-app-canary
 
-      steps:
-        - setWeight: 10
-        - pause: { duration: 60 }
+    steps:
+      - setWeight: 10
+      - pause: { duration: 60 }
 
-        - setWeight: 30
-        - pause: { duration: 120 }
+      - setWeight: 30
+      - pause: { duration: 120 }
 
-        - setWeight: 60
-        - pause: { duration: 180 }
+      - setWeight: 60
+      - pause: { duration: 180 }

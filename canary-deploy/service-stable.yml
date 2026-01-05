@@ -4,7 +4,7 @@ metadata:
   name: demo-app-stable
 spec:
   selector:
-    app: app-2048
+    app.kubernetes.io/name: app-2048
   ports:
     - port: 80
       targetPort: 8080

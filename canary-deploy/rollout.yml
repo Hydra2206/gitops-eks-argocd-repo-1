@@ -1,5 +1,5 @@
 apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+kind: Deployment
 metadata:
   namespace: game-2048
   name: rollout-2048
